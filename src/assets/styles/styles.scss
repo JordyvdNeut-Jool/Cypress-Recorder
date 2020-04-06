@@ -58,7 +58,28 @@ body {
   font-weight: 200;
 }
 
+#sidebar {
+  background-color: $pale-green;
+  display: flex;
+  flex-direction: column;
+  justify-content: left;
+  flex-grow: 1;
+  padding: 5px;
+  padding-left: 10px;
+  padding-right: 10px;
+  margin-bottom: 60px;
+}
+
 #infobox {
+  background-color: $pale-green;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-grow: 1;
+  padding: 20px;
+}
+
+#templatesbox {
   background-color: $pale-green;
   display: flex;
   flex-direction: column;
@@ -118,7 +139,8 @@ body {
 }
 
 #code-display {
-  margin: 60px 0px;
+  margin-top: 60px;
+  margin-bottom: 10px;
   display: flex;
   flex-wrap: wrap;
   flex-direction: column;

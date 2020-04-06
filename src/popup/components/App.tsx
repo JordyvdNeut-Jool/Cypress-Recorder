@@ -6,11 +6,19 @@ import Body from './Body';
 import { RecState, Block, ActionWithPayload } from '../../types';
 import { ControlAction } from '../../constants';
 import '../../assets/styles/styles.scss';
+import Templates from './Templates';
+
+const chr = chrome.extension.getBackgroundPage();
 
 export default () => {
   const [recStatus, setRecStatus] = React.useState<RecState>('off');
   const [codeBlocks, setCodeBlocks] = React.useState<Block[]>([]);
-  const [shouldInfoDisplay, setShouldInfoDisplay] = React.useState<boolean>(false);
+  const [shouldInfoDisplay, setShouldInfoDisplay] = React.useState<boolean>(
+    false
+  );
+  const [shouldTemplatesDisplay, setShouldTemplatesDisplay] = React.useState<
+    boolean
+  >(false);
   const [isValidTab, setIsValidTab] = React.useState<boolean>(true);
 
   const startRecording = (): void => {
@@ -38,6 +46,7 @@ export default () => {
   React.useEffect((): () => void => {
     function handleMessageFromBackground({ type, payload }: ActionWithPayload): void {
       setShouldInfoDisplay(false);
+      setShouldTemplatesDisplay(false);
       if (type === ControlAction.START && isValidTab) startRecording();
       else if (type === ControlAction.STOP) stopRecording();
       else if (type === ControlAction.RESET) resetRecording();
@@ -51,6 +60,7 @@ export default () => {
 
   const handleToggle = (action: ControlAction): void => {
     if (shouldInfoDisplay) setShouldInfoDisplay(false);
+    if (shouldTemplatesDisplay) setShouldTemplatesDisplay(false);
     if (action === ControlAction.START) startRecording();
     else if (action === ControlAction.STOP) stopRecording();
     else if (action === ControlAction.RESET) resetRecording();
@@ -58,7 +68,102 @@ export default () => {
   };
 
   const toggleInfoDisplay = (): void => {
-    setShouldInfoDisplay(should => !should);
+    setShouldInfoDisplay((should) => !should);
+  };
+
+  const toggleTemplatesDisplay = (): void => {
+    setShouldTemplatesDisplay((should) => !should);
+  };
+
+  const nodeServerPost = async (link, options) => {
+    const response = await fetch('http://localhost:3000/' + link, options);
+    const jsonResponse = await response.json();
+    return jsonResponse;
+  };
+
+  const saveTest = async (): Promise<void> => {
+    const inputName = document.getElementById('name') as HTMLInputElement;
+    var name = inputName.value;
+    const inputDescription = document.getElementById(
+      'description'
+    ) as HTMLInputElement;
+    var description = inputDescription.value;
+
+    let toBeSaved: string = '';
+    for (let i = 0; i !== codeBlocks.length; i += 1) {
+      toBeSaved += '\t\t' + codeBlocks[i].value.concat('\n');
+    }
+    chrome.storage.local.set(
+      { name: name, description: description, code: toBeSaved },
+      function () {
+        alert('Success!');
+      }
+    );
+    let code = toBeSaved;
+    const datas = { name, description, code };
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify(datas),
+    };
+    nodeServerPost('saveTest', options);
+  };
+
+  const readTest = async (): Promise<any[]> => {
+    chr.console.log('readTest');
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json; charset=utf-8',
+      },
+    };
+    var response = nodeServerPost('readTests', options);
+
+    var fileName = response.then((result) => {
+      let values = Object.values(result);
+      return values;
+    });
+    return fileName;
+  };
+  const pushTemplateName = () => {
+    chr.console.log('pushTemp');
+    readTest().then((result) => {
+      result.forEach((element) => {
+        chr.console.log(element);
+        element.forEach((fileName) => {
+          document.getElementById('test').innerHTML += fileName;
+          chr.console.log(fileName);
+        });
+      });
+    });
+  };
+
+  const openRunner = async (): Promise<void> => {
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json; charset=utf-8',
+      },
+    };
+    nodeServerPost('openRunner', options);
+  };
+
+  const runLastRecordedTest = async (): Promise<void> => {
+    let code: string = '';
+    for (let i = 0; i !== codeBlocks.length; i += 1) {
+      code += '\t\t' + codeBlocks[i].value.concat('\n');
+    }
+    const data = { code };
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify(data),
+    };
+    nodeServerPost('openTest', options);
   };
 
   const copyToClipboard = async (): Promise<void> => {
@@ -93,26 +198,41 @@ export default () => {
   };
 
   return (
-    <div id="App">
-      <Header shouldInfoDisplay={shouldInfoDisplay} toggleInfoDisplay={toggleInfoDisplay} />
-      {
-        (shouldInfoDisplay
-          ? <Info />
-          : (
-            <Body
-              codeBlocks={codeBlocks}
-              recStatus={recStatus}
-              isValidTab={isValidTab}
-              destroyBlock={destroyBlock}
-              moveBlock={moveBlock}
-            />
-          )
-        )
-      }
+    <div id='App'>
+      <Header
+        shouldInfoDisplay={shouldInfoDisplay}
+        toggleInfoDisplay={toggleInfoDisplay}
+        shouldTemplatesDisplay={shouldTemplatesDisplay}
+        toggleTemplatesDisplay={toggleTemplatesDisplay}
+      />
+      {shouldInfoDisplay ? (
+        <Info />
+      ) : shouldTemplatesDisplay ? (
+        <Templates />
+      ) : (
+        <Body
+          codeBlocks={codeBlocks}
+          recStatus={recStatus}
+          isValidTab={isValidTab}
+          destroyBlock={destroyBlock}
+          moveBlock={moveBlock}
+        />
+      )}
+      {recStatus === 'paused' &&
+        !shouldInfoDisplay &&
+        !shouldTemplatesDisplay && (
+          <Sidebar
+            recStatus={recStatus}
+            saveTest={saveTest}
+            runLastRecordedTest={runLastRecordedTest}
+          />
+        )}
       <Footer
         isValidTab={isValidTab}
         recStatus={recStatus}
         handleToggle={handleToggle}
+        openRunner={openRunner}
+        readTest={readTest}
         copyToClipboard={copyToClipboard}
       />
     </div>

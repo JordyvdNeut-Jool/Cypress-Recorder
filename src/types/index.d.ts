@@ -32,3 +32,10 @@ export interface Block {
   value: string,
   id: string,
 }
+
+export interface Test {
+  name: string,
+  description: string,
+  code: string,
+  // code: Block[],
+}
